@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+
+        <title>Babylon.js sample code</title>
+
+        <!-- Babylon.js -->
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/dat-gui/0.6.2/dat.gui.min.js"></script>
+        <script src="https://assets.babylonjs.com/generated/Assets.js"></script>
+        <script src="https://cdn.babylonjs.com/ammo.js"></script>
+        <script src="https://cdn.babylonjs.com/havok/HavokPhysics_umd.js"></script>
+        <script src="https://cdn.babylonjs.com/cannon.js"></script>
+        <script src="https://cdn.babylonjs.com/Oimo.js"></script>
+        <script src="https://cdn.babylonjs.com/earcut.min.js"></script>
+        <script src="https://cdn.babylonjs.com/babylon.js"></script>
+        <script src="https://cdn.babylonjs.com/materialsLibrary/babylonjs.materials.min.js"></script>
+        <script src="https://cdn.babylonjs.com/proceduralTexturesLibrary/babylonjs.proceduralTextures.min.js"></script>
+        <script src="https://cdn.babylonjs.com/postProcessesLibrary/babylonjs.postProcess.min.js"></script>
+        <script src="https://cdn.babylonjs.com/loaders/babylonjs.loaders.js"></script>
+        <script src="https://cdn.babylonjs.com/serializers/babylonjs.serializers.min.js"></script>
+        <script src="https://cdn.babylonjs.com/gui/babylon.gui.min.js"></script>
+        <script src="https://cdn.babylonjs.com/inspector/babylon.inspector.bundle.js"></script>
+
+        <style>
+            html, body {
+                overflow: hidden;
+                width: 100%;
+                height: 100%;
+                margin: 0;
+                padding: 0;
+            }
+
+            #renderCanvas {
+                width: 100%;
+                height: 100%;
+                touch-action: none;
+            }
+            
+            #canvasZone {
+                width: 100%;
+                height: 100%;
+            }
+        </style>
+    </head>
+<body>
+    <div id="canvasZone"><canvas id="renderCanvas"></canvas></div>
+    <script>
+        var canvas = document.getElementById("renderCanvas");
+
+        var startRenderLoop = function (engine, canvas) {
+            engine.runRenderLoop(function () {
+                if (sceneToRender && sceneToRender.activeCamera) {
+                    sceneToRender.render();
+                }
+            });
+        }
+
+        var engine = null;
+        var scene = null;
+        var sceneToRender = null;
+        var createDefaultEngine = function() { return new BABYLON.Engine(canvas, true, { preserveDrawingBuffer: true, stencil: true,  disableWebGL2Support: false}); };
+        /**
+ * Euler's bricks implementation
+ * NI 2023
+*/
+
+const createScene = function () {
+    // proj vars
+    let n = 0;
+    let sair = false;
+    let bricks = [];
+    let bricksMaterial = [];
+    let bricksMass = [];
+
+    // control vars
+    let max = 2000;
+    let maxN = 50;
+
+    // This creates a basic Babylon Scene object (non-mesh)
+    const scene = new BABYLON.Scene(engine);
+    scene.ambientColor = new BABYLON.Color3(1, 1, 1);
+    
+    // physics
+    scene.enablePhysics();
+
+    /********** ARC ROTATE CAMERA EXAMPLE **************************/
+
+    // Creates, angles, distances and targets the camera
+	var camera = new BABYLON.ArcRotateCamera("Camera", 0, 0, 0, new BABYLON.Vector3(0,0,0), scene);
+
+    // This positions the camera
+    camera.setPosition(new BABYLON.Vector3(0, 100, -150));
+
+    // This attaches the camera to the canvas
+    camera.attachControl(canvas, true);
+
+    camera.inputs.addMouseWheel;
+
+    scene.onPointerPick = (evt, pickInfo) => {
+        camera.setTarget(pickInfo.pickedPoint);
+    }
+
+
+/**************************************************************/
+
+    // This creates a light, aiming 0,1,0 - to the sky (non-mesh)
+    const light = new BABYLON.HemisphericLight("light", new BABYLON.Vector3(0, 1, 0), scene);
+    // Default intensity is 1. Let's dim the light a small amount
+    light.intensity = 0.7;
+
+    // bricks
+    // loop
+    let lastPosiX = 0;
+    for (let a = 1; a < max ; a++) {
+        for (let b = 2 ; b < max ; b++) {
+            for (let c = 3; c < max ; c++ ) {
+                if ( ETijoloPerfeito(a, b, c) )
+                {
+                    // box
+                    bricks[n] = BABYLON.MeshBuilder.CreateBox("brick" + n, {}, scene);
+                    bricks[n].scaling.x = a * 0.01;
+                    bricks[n].scaling.y = b * 0.01;
+                    bricks[n].scaling.z = c * 0.01;
+
+                    // material
+                    bricksMaterial[n] = new BABYLON.StandardMaterial("matSimpleColor" + n, scene);
+                    bricksMaterial[n].diffuseColor = new BABYLON.Color4(Math.random(), 
+                    Math.random(), 
+                    Math.random(),
+                    Math.random());
+                    bricks[n].material = bricksMaterial[n];
+
+                    // posi
+                    bricks[n].position.y = bricks[n].scaling.y + 2;
+                    bricks[n].position.x = lastPosiX + bricks[n].position.y;
+                    lastPosiX = bricks[n].position.x;
+                    bricks[n].position.z = n*2;
+
+                    // mass
+                    let birckVolume = a * b * c;
+                    bricksMass[n] = birckVolume * 0.000001;
+                    console.log(bricksMass[n], 1 - ((bricksMass[n]*10)/100));
+                    bricks[n].physicsImpostor = new BABYLON.PhysicsImpostor(bricks[n], 
+                    BABYLON.PhysicsImpostor.BoxImpostor, 
+                    { mass: bricksMass[n], restitution: 1 - ((bricksMass[n]*10)/100) }, scene);
+
+                    if ( n < maxN)
+                        n++;
+                    else
+                    {
+                        sair = true;
+                        break;
+                    }	
+                }
+            }
+            if (sair)
+                break;
+        }
+        if (sair)
+            break;
+    }
+
+    // ground
+    const ground = BABYLON.MeshBuilder.CreateGround("ground", {width: 10000, height: 5000}, scene);
+    ground.physicsImpostor = new BABYLON.PhysicsImpostor(ground, 
+    BABYLON.PhysicsImpostor.BoxImpostor, 
+    { mass: 0, restitution: 0 }, scene);
+
+
+    // Events //// move bricks
+    var canvas = engine.getRenderingCanvas();
+    var startingPoint;
+    var currentMesh;
+
+    var getGroundPosition = function () {
+        // Use a predicate to get position on the ground
+        var pickinfo = scene.pick(scene.pointerX, scene.pointerY, 
+            function (mesh) { return mesh == ground; }
+        );
+
+        if (pickinfo.hit) {
+            return pickinfo.pickedPoint;
+        }
+
+        return null;
+    }
+
+    var onPointerDown = function (evt) {
+        if (evt.button !== 0) {
+            return;
+        }
+
+        // check if we are under a mesh
+        var pickInfo = scene.pick(scene.pointerX, scene.pointerY, 
+            function (mesh) { return mesh !== ground; }
+        );
+        if (pickInfo.hit) {
+            currentMesh = pickInfo.pickedMesh;
+            startingPoint = getGroundPosition(evt);
+
+            if (startingPoint) { // we need to disconnect camera from canvas
+                setTimeout(function () {
+                    camera.detachControl(canvas);
+                }, 0);
+            }
+        }
+    }
+
+    var onPointerUp = function () {
+        if (startingPoint) {
+            camera.attachControl(canvas, true);
+            startingPoint = null;
+            return;
+        }
+    }
+
+    var onPointerMove = function (evt) {
+        if (!startingPoint) {
+            return;
+        }
+
+        var current = getGroundPosition(evt);
+
+        if (!current) {
+            return;
+        }
+
+        var diff = current.subtract(startingPoint);
+        currentMesh.position.addInPlace(diff);
+
+        startingPoint = current;
+
+    }
+
+    canvas.addEventListener("pointerdown", onPointerDown, false);
+    canvas.addEventListener("pointerup", onPointerUp, false);
+    canvas.addEventListener("pointermove", onPointerMove, false);
+
+    scene.onDispose = function () {
+        canvas.removeEventListener("pointerdown", onPointerDown);
+        canvas.removeEventListener("pointerup", onPointerUp);
+        canvas.removeEventListener("pointermove", onPointerMove);
+    }
+
+
+
+
+
+    ///////////////////////////////////////// aux
+    function ETijoloPerfeito(a, b, c) {
+        let eTijolo = false;
+        if ((b > a) & (c > b) && Number.isInteger(a + b + c))  // inteiros e sequênciais
+        {
+            let diagonalAB = 0.0;
+            let diagonalBC = 0.0;
+            let diagonalAC = 0.0;
+            let diagonalDC = 0.0;
+
+            let ab = (a**2 + b**2);
+            let bc = (b**2 + c**2);
+            let ac = (a**2 + c**2);
+            let dc = (ab**2 + c**2);
+            diagonalAB = Math.sqrt(ab);//squareRoot(ab, 1);
+            diagonalBC = Math.sqrt(bc);//squareRoot(bc, 1);
+            diagonalAC = Math.sqrt(ac);//squareRoot(ac, 1);
+            diagonalDC = Math.sqrt(dc);//squareRoot(dc, 1);
+
+            if (Number.isInteger(diagonalAB) && 
+                Number.isInteger(diagonalBC) && 
+                Number.isInteger(diagonalAC)) {
+                eTijolo = true;
+
+                if (Number.isInteger(diagonalDC)) {
+                    eTijolo = true;
+                    //console.log(a,b,c, "Eureca encontrei o tijolo perfeito!");
+                }
+            }
+        } 
+        return eTijolo;
+    }
+
+	
+
+    /////////////// return scene
+    return scene;
+};
+                window.initFunction = async function() {
+                    
+                    
+                    
+                    var asyncEngineCreation = async function() {
+                        try {
+                        return createDefaultEngine();
+                        } catch(e) {
+                        console.log("the available createEngine function failed. Creating the default engine instead");
+                        return createDefaultEngine();
+                        }
+                    }
+
+                    window.engine = await asyncEngineCreation();
+        if (!engine) throw 'engine should not be null.';
+        startRenderLoop(engine, canvas);
+        window.scene = createScene();};
+        initFunction().then(() => {sceneToRender = scene                    
+        });
+
+        // Resize
+        window.addEventListener("resize", function () {
+            engine.resize();
+        });
+    </script>
+</body>
+</html>
